@@ -2,7 +2,6 @@ package simpledb.storage;
 
 import simpledb.common.Database;
 import simpledb.common.DbException;
-import simpledb.common.Debug;
 import simpledb.common.Catalog;
 import simpledb.transaction.TransactionId;
 
@@ -21,8 +20,11 @@ public class HeapPage implements Page {
 
     final HeapPageId pid;
     final TupleDesc td;
+    // 槽储存
     final byte[] header;
+    // 元组数据
     final Tuple[] tuples;
+    // 槽数
     final int numSlots;
 
     byte[] oldData;
@@ -51,10 +53,11 @@ public class HeapPage implements Page {
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
 
         // allocate and read the header slots of this page
+        // 处理头部
         header = new byte[getHeaderSize()];
         for (int i=0; i<header.length; i++)
             header[i] = dis.readByte();
-        
+        // 处理每行
         tuples = new Tuple[numSlots];
         try{
             // allocate and read the actual records of this page
@@ -73,7 +76,9 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
+        // 计算页面有多少个元组
+        // tuple_nums = floor((page_size * 8) / tuple_size * 8 + 1)
+        return (int) Math.floor((BufferPool.getPageSize() * 8 * 1.0) / (td.getSize() * 8 + 1));
 
     }
 
@@ -81,11 +86,10 @@ public class HeapPage implements Page {
      * Computes the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
-    private int getHeaderSize() {        
-        
+    private int getHeaderSize() {
         // some code goes here
-        return 0;
-                 
+        // headerBytes = ceiling(tuplePerPage / 8);
+        return (int) Math.ceil(getNumTuples() * 1.0 / 8);
     }
     
     /** Return a view of this page before it was modified
@@ -117,8 +121,8 @@ public class HeapPage implements Page {
      * @return the PageId associated with this page.
      */
     public HeapPageId getId() {
-    // some code goes here
-    throw new UnsupportedOperationException("implement this");
+        // some code goes here
+        return pid;
     }
 
     /**
@@ -250,7 +254,7 @@ public class HeapPage implements Page {
      */
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
 
     /**
@@ -262,7 +266,7 @@ public class HeapPage implements Page {
      */
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
 
     /**
@@ -271,7 +275,7 @@ public class HeapPage implements Page {
      */
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
-	// not necessary for lab1
+	// not necessary for Exercise1
     }
 
     /**
@@ -279,7 +283,7 @@ public class HeapPage implements Page {
      */
     public TransactionId isDirty() {
         // some code goes here
-	// Not necessary for lab1
+	// Not necessary for Exercise1
         return null;      
     }
 
@@ -288,7 +292,13 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int count = 0;
+        for (int i = 0; i < numSlots; i++) {
+            if(!isSlotUsed(i)){
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -296,7 +306,14 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        // 槽位
+        int quot = i / 8;
+        // 偏移
+        int move = i % 8;
+        // 获得对应的槽位
+        int bitidx = header[quot];
+        // 偏移 move 位，看是否等于 1
+        return ((bitidx >> move) & 1) == 1;
     }
 
     /**
@@ -304,7 +321,7 @@ public class HeapPage implements Page {
      */
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
 
     /**
@@ -313,8 +330,14 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        // 获取已使用的槽对应的数
+        ArrayList<Tuple> res = new ArrayList<>();
+        for (int i = 0; i < numSlots; i++) {
+            if(isSlotUsed(i)){
+                res.add(tuples[i]);
+            }
+        }
+        return res.iterator();
     }
 
 }
-

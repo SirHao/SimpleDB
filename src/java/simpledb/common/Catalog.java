@@ -23,12 +23,36 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Catalog {
 
+    // 所有表
+    private final ConcurrentHashMap<Integer, Table> hashTable;
+
+    /**
+     * 表
+     * */
+    private static class Table{
+        private DbFile file;
+        private String tableName;
+        private String pkeyField;
+
+        public Table(DbFile file, String tableName, String pkeyField){
+            this.file = file;
+            this.tableName = tableName;
+            this.pkeyField = pkeyField;
+        }
+
+        public String toString(){
+            return tableName + "(" + file.getId() + ")" + pkeyField + ")";
+        }
+    }
+
+
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
+        hashTable = new ConcurrentHashMap<>();
     }
 
     /**
@@ -42,6 +66,7 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+        hashTable.put(file.getId(), new Table(file, name, pkeyField));
     }
 
     public void addTable(DbFile file, String name) {
@@ -65,7 +90,17 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        // 遍历
+        Integer res = hashTable.searchValues(1, value ->{
+            if(value.tableName.equals(name)){
+                return value.file.getId();
+            }
+            return null;
+        });
+        if(res != null){
+            return res;
+        }
+        throw new NoSuchElementException("not found id for table " + name);
     }
 
     /**
@@ -76,38 +111,55 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        Table t = hashTable.getOrDefault(tableid, null);
+        if(t != null){
+            return t.file.getTupleDesc();
+        }
+        throw new NoSuchElementException("not found tupleDesc for table " + tableid);
     }
 
     /**
      * Returns the DbFile that can be used to read the contents of the
      * specified table.
      * @param tableid The id of the table, as specified by the DbFile.getId()
-     *     function passed to addTable
+     *     function passed to addTable`
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        Table t = hashTable.getOrDefault(tableid, null);
+        if(t != null){
+            return t.file;
+        }
+        throw new NoSuchElementException("not found dbFile for table " + tableid);
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
+        Table t = hashTable.getOrDefault(tableid, null);
+        if(t != null){
+            return t.pkeyField;
+        }
+        throw new NoSuchElementException("not found primaryKey for table " + tableid);
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return hashTable.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+        Table t = hashTable.getOrDefault(id, null);
+        if(t != null){
+            return t.tableName;
+        }
+        throw new NoSuchElementException("not found tableName for table " + id);
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        hashTable.clear();
     }
     
     /**
@@ -116,10 +168,11 @@ public class Catalog {
      */
     public void loadSchema(String catalogFile) {
         String line = "";
+        // 根目录
         String baseFolder=new File(new File(catalogFile).getAbsolutePath()).getParent();
         try {
+            // 读取 catelogFile
             BufferedReader br = new BufferedReader(new FileReader(catalogFile));
-            
             while ((line = br.readLine()) != null) {
                 //assume line is of the format name (field type, field type, ...)
                 String name = line.substring(0, line.indexOf("(")).trim();
@@ -165,4 +218,3 @@ public class Catalog {
         }
     }
 }
-

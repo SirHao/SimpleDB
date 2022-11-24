@@ -33,6 +33,11 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    // 页面的最大数量
+    private final int numPages;
+    // 储存的页面
+    private final ConcurrentHashMap<Integer, Page> pageStore;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -40,6 +45,8 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        this.numPages = numPages;
+        pageStore = new ConcurrentHashMap<>();
     }
     
     public static int getPageSize() {
@@ -71,10 +78,24 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        // 如果缓存池中没有
+        if(!pageStore.containsKey(pid.hashCode())){
+            // 获取
+            DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page page = dbFile.readPage(pid);
+            // 是否超过大小
+            if(pageStore.size() >= numPages){
+                // 淘汰 (后面的 Exercise 书写)
+                throw new DbException("页面已满");
+            }
+            // 放入缓存
+            pageStore.put(pid.hashCode(), page);
+        }
+        // 从 缓存池 中获取
+        return pageStore.get(pid.hashCode());
     }
 
     /**
@@ -88,7 +109,7 @@ public class BufferPool {
      */
     public  void unsafeReleasePage(TransactionId tid, PageId pid) {
         // some code goes here
-        // not necessary for lab1|lab2
+        // not necessary for Exercise1|Exercise2
     }
 
     /**
@@ -98,13 +119,13 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid) {
         // some code goes here
-        // not necessary for lab1|lab2
+        // not necessary for Exercise1|Exercise2
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
-        // not necessary for lab1|lab2
+        // not necessary for Exercise1|Exercise2
         return false;
     }
 
@@ -117,13 +138,13 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid, boolean commit) {
         // some code goes here
-        // not necessary for lab1|lab2
+        // not necessary for Exercise1|Exercise2
     }
 
     /**
      * Add a tuple to the specified table on behalf of transaction tid.  Will
      * acquire a write lock on the page the tuple is added to and any other 
-     * pages that are updated (Lock acquisition is not needed for lab2). 
+     * pages that are updated (Lock acquisition is not needed for Exercise2). 
      * May block if the lock(s) cannot be acquired.
      * 
      * Marks any pages that were dirtied by the operation as dirty by calling
@@ -138,7 +159,7 @@ public class BufferPool {
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
 
     /**
@@ -157,7 +178,7 @@ public class BufferPool {
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
 
     /**
@@ -167,7 +188,7 @@ public class BufferPool {
      */
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
 
     }
 
@@ -181,7 +202,7 @@ public class BufferPool {
     */
     public synchronized void discardPage(PageId pid) {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
 
     /**
@@ -190,14 +211,14 @@ public class BufferPool {
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
 
     /** Write all pages of the specified transaction to disk.
      */
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
-        // not necessary for lab1|lab2
+        // not necessary for Exercise1|Exercise2
     }
 
     /**
@@ -206,7 +227,6 @@ public class BufferPool {
      */
     private synchronized  void evictPage() throws DbException {
         // some code goes here
-        // not necessary for lab1
+        // not necessary for Exercise1
     }
-
 }
