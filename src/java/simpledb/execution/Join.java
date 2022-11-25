@@ -1,5 +1,6 @@
 package simpledb.execution;
 
+import simpledb.common.Type;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.common.DbException;
 import simpledb.storage.Tuple;
@@ -13,7 +14,11 @@ import java.util.*;
 public class Join extends Operator {
 
     private static final long serialVersionUID = 1L;
-
+    private final JoinPredicate joinPredicate;
+    private OpIterator child1;
+    private OpIterator child2;
+    // 临时元组，保存上次迭代用的 child1 的 Tuple
+    private Tuple t;
     /**
      * Constructor. Accepts two children to join and the predicate to join them
      * on
@@ -26,12 +31,13 @@ public class Join extends Operator {
      *            Iterator for the right(inner) relation to join
      */
     public Join(JoinPredicate p, OpIterator child1, OpIterator child2) {
-        // some code goes here
+        this.joinPredicate = p;
+        this.child1 = child1;
+        this.child2 = child2;
     }
 
     public JoinPredicate getJoinPredicate() {
-        // some code goes here
-        return null;
+        return joinPredicate;
     }
 
     /**
@@ -40,8 +46,7 @@ public class Join extends Operator {
      *       alias or table name.
      * */
     public String getJoinField1Name() {
-        // some code goes here
-        return null;
+        return child1.getTupleDesc().getFieldName(joinPredicate.getField1());
     }
 
     /**
@@ -50,8 +55,7 @@ public class Join extends Operator {
      *       alias or table name.
      * */
     public String getJoinField2Name() {
-        // some code goes here
-        return null;
+        return child2.getTupleDesc().getFieldName(joinPredicate.getField2());
     }
 
     /**
@@ -59,21 +63,27 @@ public class Join extends Operator {
      *      implementation logic.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        // some code goes here
+        child1.open();
+        child2.open();
+        super.open();
     }
 
     public void close() {
-        // some code goes here
+        super.close();
+        child2.close();
+        child1.close();
+
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child1.rewind();
+        child2.rewind();
+        t = null;
     }
 
     /**
@@ -96,18 +106,54 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+        // t 的意义就是 笛卡尔积, 一个可能对多个相等
+        while (child1.hasNext() || t != null){
+            if(child1.hasNext() && t == null){
+                t = child1.next();
+            }
+            while(child2.hasNext()){
+                Tuple t2 = child2.next();
+                if(joinPredicate.filter(t, t2)){
+                    TupleDesc td1 = t.getTupleDesc();
+                    TupleDesc td2 = t2.getTupleDesc();
+                    // 合并
+                    TupleDesc tupleDesc = TupleDesc.merge(td1, td2);
+                    // 创建新的行
+                    Tuple newTuple = new Tuple(tupleDesc);
+                    // 设置路径
+                    newTuple.setRecordId(t.getRecordId());
+                    // 合并
+                    int i = 0;
+                    for (; i < td1.numFields(); i++) {
+                        newTuple.setField(i, t.getField(i));
+                    }
+                    for (int j = 0; j < td2.numFields(); j++) {
+                        newTuple.setField(i + j, t2.getField(j));
+                    }
+                    // 遍历完t2后重置，t置空，准备遍历下一个
+                    if(!child2.hasNext()){
+                        child2.rewind();
+                        t = null;
+                    }
+                    return newTuple;
+                }
+            }
+            // 重置 child2
+            child2.rewind();
+            t = null;
+        }
         return null;
     }
 
     @Override
     public OpIterator[] getChildren() {
-        // some code goes here
-        return null;
+        return new OpIterator[]{child1, child2};
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
-        // some code goes here
+        child1 = children[0];
+        child2 = children[1];
     }
 
 }
